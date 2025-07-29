@@ -1,0 +1,506 @@
+<!DOCTYPE html>
+<html lang="fa" dir="rtl">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>نمایش وظایف</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- Persian (Jalali) datepicker library -->
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/jalalidatepicker@latest/dist/jalalidatepicker.min.css">
+    <script src="https://cdn.jsdelivr.net/npm/jalalidatepicker@latest/dist/jalalidatepicker.min.js"></script>
+    <style>
+        @font-face {
+            font-family: 'Vazir';
+            src: url('https://cdn.jsdelivr.net/gh/rastikerdar/vazir-font@v30.1.0/dist/Vazir.woff2') format('woff2');
+            font-weight: normal;
+            font-style: normal;
+        }
+
+        body,
+        * {
+            font-family: 'IRANYekan', Tahoma, Arial, sans-serif !important;
+        }
+
+
+        /* Custom scrollbar */
+        .custom-scrollbar::-webkit-scrollbar {
+            width: 6px;
+            height: 6px;
+        }
+
+        .custom-scrollbar::-webkit-scrollbar-track {
+            background: #f1f1f1;
+            border-radius: 10px;
+        }
+
+        .custom-scrollbar::-webkit-scrollbar-thumb {
+            background: #c1c1c1;
+            border-radius: 10px;
+        }
+
+        .custom-scrollbar::-webkit-scrollbar-thumb:hover {
+            background: #a8a8a8;
+        }
+
+        /* Status colors */
+        .status-pending {
+            background-color: #fef3c7;
+            color: #92400e;
+        }
+
+        .status-in-progress {
+            background-color: #dbeafe;
+            color: #1e40af;
+        }
+
+        .status-done {
+            background-color: #dcfce7;
+            color: #166534;
+        }
+
+        .status-blocked {
+            background-color: #fee2e2;
+            color: #991b1b;
+        }
+
+        /* Progress bar animation */
+        @keyframes progressAnimation {
+            0% {
+                width: 0%;
+            }
+
+            100% {
+                width: var(--progress-width);
+            }
+        }
+
+        .progress-bar {
+            animation: progressAnimation 1s ease-in-out forwards;
+        }
+    </style>
+</head>
+
+<body class="bg-gray-50 text-gray-800">
+    <div class="container mx-auto p-4 max-w-6xl">
+        <div class="bg-white rounded-lg shadow-md overflow-hidden">
+            <!-- Header -->
+            <div class="border-b border-gray-200 px-6 py-4 flex justify-between items-center">
+                <h2 class="text-xl font-bold text-gray-800">لیست وظایف</h2>
+                <div class="flex space-x-2 space-x-reverse">
+                    <button id="filterBtn"
+                        class="px-3 py-1.5 border border-gray-300 rounded-md text-sm font-medium hover:bg-gray-50 flex items-center">
+                        <span>فیلتر</span>
+                    </button>
+                    <button id="sortBtn"
+                        class="px-3 py-1.5 border border-gray-300 rounded-md text-sm font-medium hover:bg-gray-50 flex items-center">
+                        <span>مرتب‌سازی</span>
+                    </button>
+                </div>
+            </div>
+
+            <!-- Filters (hidden by default) -->
+            <div id="filters" class="hidden px-6 py-4 border-b border-gray-200 bg-gray-50">
+                <div class="grid grid-cols-1 md:grid-cols-4 gap-4">
+                    <!-- Status filter -->
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700 mb-1">وضعیت</label>
+                        <select id="statusFilter" class="w-full border border-gray-300 rounded-md px-3 py-2 text-sm">
+                            <option value="">همه</option>
+                            <option value="pending">در انتظار</option>
+                            <option value="in-progress">در حال انجام</option>
+                            <option value="done">انجام شده</option>
+                            <option value="blocked">مسدود شده</option>
+                        </select>
+                    </div>
+                    <!-- Start date filter (jalali) -->
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700 mb-1">تاریخ شروع</label>
+                        <input id="startDateFilter" data-jdp type="text" placeholder="YYYY/MM/DD"
+                            class="w-full border border-gray-300 rounded-md px-3 py-2 text-sm">
+                    </div>
+                    <!-- End date filter (jalali) -->
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700 mb-1">تاریخ پایان</label>
+                        <input id="endDateFilter" data-jdp type="text" placeholder="YYYY/MM/DD"
+                            class="w-full border border-gray-300 rounded-md px-3 py-2 text-sm">
+                    </div>
+                    <!-- Apply filters button -->
+                    <div class="flex items-end">
+                        <button id="applyFiltersBtn"
+                            class="w-full bg-blue-600 text-white px-3 py-2 rounded-md text-sm hover:bg-blue-700">اعمال
+                            فیلترها</button>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Sort options (hidden by default) -->
+            <div id="sortOptions" class="hidden px-6 py-4 border-b border-gray-200 bg-gray-50">
+                <div class="grid grid-cols-1 md:grid-cols-4 gap-4">
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700 mb-1">مرتب‌سازی بر اساس</label>
+                        <select id="sortField" class="w-full border border-gray-300 rounded-md px-3 py-2 text-sm">
+                            <option value="start">تاریخ شروع</option>
+                            <option value="end">تاریخ پایان</option>
+                            <option value="progress">پیشرفت</option>
+                            <option value="title">عنوان</option>
+                        </select>
+                    </div>
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700 mb-1">ترتیب</label>
+                        <select id="sortOrder" class="w-full border border-gray-300 rounded-md px-3 py-2 text-sm">
+                            <option value="asc">صعودی</option>
+                            <option value="desc">نزولی</option>
+                        </select>
+                    </div>
+                    <div class="col-span-2 flex items-end">
+                        <button id="applySortBtn"
+                            class="w-full bg-blue-600 text-white px-3 py-2 rounded-md text-sm hover:bg-blue-700">اعمال
+                            مرتب‌سازی</button>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Task List -->
+            <div class="overflow-x-auto custom-scrollbar">
+                <table class="min-w-full divide-y divide-gray-200">
+                    <thead class="bg-gray-50">
+                        <tr>
+                            <th scope="col"
+                                class="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">
+                                عنوان</th>
+                            <th scope="col"
+                                class="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">
+                                مسئول</th>
+                            <th scope="col"
+                                class="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">
+                                تاریخ‌ها</th>
+                            <th scope="col"
+                                class="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">
+                                وضعیت</th>
+                            <th scope="col"
+                                class="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">
+                                پیشرفت</th>
+                            <th scope="col"
+                                class="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">
+                                عملیات</th>
+                        </tr>
+                    </thead>
+                    <tbody id="taskList" class="bg-white divide-y divide-gray-200">
+                        <!-- Tasks will be inserted here by JavaScript -->
+                    </tbody>
+                </table>
+            </div>
+
+            <!-- Pagination -->
+            <div class="px-6 py-4 border-t border-gray-200 flex justify-between items-center">
+                <div class="text-sm text-gray-700">
+                    نمایش <span id="startItem" class="font-medium">1</span> تا <span id="endItem"
+                        class="font-medium">10</span> از <span id="totalItems" class="font-medium">50</span> وظیفه
+                </div>
+                <div class="flex space-x-2 space-x-reverse">
+                    <button id="prevPage"
+                        class="px-3 py-1 border border-gray-300 rounded-md text-sm font-medium hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed"
+                        disabled>
+                        قبلی
+                    </button>
+                    <button id="nextPage"
+                        class="px-3 py-1 border border-gray-300 rounded-md text-sm font-medium hover:bg-gray-50">
+                        بعدی
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        function toJalali(isoDateStr) {
+            const [gy, gm, gd] = isoDateStr.split('-').map(Number);
+            function d2j(gy, gm, gd) {
+                var g_d_m = [0, 31, (gy % 4 === 0 && gy % 100 !== 0) || gy % 400 === 0 ? 29 : 28, 31, 30, 31, 30, 31, 31, 30, 31, 30, 31];
+                var gy2 = gm > 2 ? gy + 1 : gy;
+                var days = 355666 + (365 * gy) + parseInt((gy2 + 3) / 4) - parseInt((gy2 + 99) / 100) + parseInt((gy2 + 399) / 400) + gd;
+                for (var i = 0; i < gm; ++i)
+                    days += g_d_m[i];
+                var jy = -1595 + (33 * parseInt(days / 12053));
+                days %= 12053;
+                jy += 4 * parseInt(days / 1461);
+                days %= 1461;
+                if (days > 365) {
+                    jy += parseInt((days - 1) / 365);
+                    days = (days - 1) % 365;
+                }
+                var jm, jd;
+                if (days < 186) {
+                    jm = 1 + parseInt(days / 31);
+                    jd = 1 + (days % 31);
+                } else {
+                    jm = 7 + parseInt((days - 186) / 30);
+                    jd = 1 + ((days - 186) % 30);
+                }
+                return [jy, jm, jd];
+            }
+            const [jy, jm, jd] = d2j(gy, gm, gd);
+            const pad = n => n < 10 ? '0' + n : n;
+            return `${jy}/${pad(jm)}/${pad(jd)}`;
+        }
+
+        function toPersianDigits(str) {
+            return str.toString().replace(/\d/g, d => '۰۱۲۳۴۵۶۷۸۹'[d]);
+        }
+        let tasks = [];
+        // filteredTasks will hold tasks after applying filters and sorting
+        let filteredTasks = [];
+
+        async function fetchTasks() {
+            const response = await fetch('http://localhost:8080/api/tasks');
+            if (response.ok) {
+                tasks = await response.json();
+                // Initially filteredTasks contains all tasks
+                filteredTasks = tasks.slice();
+                // Apply initial filters and sorting (none at load)
+                applyFiltersAndSort();
+            } else {
+                alert('خطا در دریافت داده‌ها از سرور');
+            }
+        }
+
+
+
+        // DOM elements
+        const taskList = document.getElementById('taskList');
+        const filterBtn = document.getElementById('filterBtn');
+        const filters = document.getElementById('filters');
+        const sortBtn = document.getElementById('sortBtn');
+        const sortOptions = document.getElementById('sortOptions');
+        const prevPage = document.getElementById('prevPage');
+        const nextPage = document.getElementById('nextPage');
+        const startItem = document.getElementById('startItem');
+        const endItem = document.getElementById('endItem');
+        const totalItems = document.getElementById('totalItems');
+
+        // Pagination variables
+        let currentPage = 1;
+        const itemsPerPage = 5;
+        let totalPages = 0;
+
+        // Initialize
+        document.addEventListener('DOMContentLoaded', () => {
+            // Start watching date inputs to attach Jalali datepicker
+            if (typeof jalaliDatepicker !== 'undefined' && jalaliDatepicker.startWatch) {
+                // By default autoShow & autoHide are true; persianDigits option can be true to show Persian digits
+                jalaliDatepicker.startWatch({ persianDigits: true });
+            }
+            fetchTasks();
+        });
+
+        // Toggle filters
+        filterBtn.addEventListener('click', () => {
+            filters.classList.toggle('hidden');
+            sortOptions.classList.add('hidden');
+        });
+
+        // Toggle sort options
+        sortBtn.addEventListener('click', () => {
+            sortOptions.classList.toggle('hidden');
+            filters.classList.add('hidden');
+        });
+
+        // Pagination handlers
+        prevPage.addEventListener('click', () => {
+            if (currentPage > 1) {
+                currentPage--;
+                renderTasks();
+                updatePagination();
+            }
+        });
+
+        nextPage.addEventListener('click', () => {
+            if (currentPage < Math.ceil(filteredTasks.length / itemsPerPage)) {
+                currentPage++;
+                renderTasks();
+                updatePagination();
+            }
+        });
+
+        // Apply filter and sort buttons
+        const applyFiltersBtn = document.getElementById('applyFiltersBtn');
+        const applySortBtn = document.getElementById('applySortBtn');
+        if (applyFiltersBtn) {
+            applyFiltersBtn.addEventListener('click', (e) => {
+                e.preventDefault();
+                applyFiltersAndSort();
+            });
+        }
+        if (applySortBtn) {
+            applySortBtn.addEventListener('click', (e) => {
+                e.preventDefault();
+                applyFiltersAndSort();
+            });
+        }
+
+
+        // Render tasks
+        function renderTasks() {
+            taskList.innerHTML = '';
+            // Determine slice boundaries based on filteredTasks
+            const startIndex = (currentPage - 1) * itemsPerPage;
+            const endIndex = Math.min(startIndex + itemsPerPage, filteredTasks.length);
+            for (let i = startIndex; i < endIndex; i++) {
+                const task = filteredTasks[i];
+                const row = document.createElement('tr');
+
+                // Status translation
+                let statusText = '';
+                switch (task.status) {
+                    case 'pending':
+                        statusText = 'در انتظار';
+                        break;
+                    case 'in-progress':
+                        statusText = 'در حال انجام';
+                        break;
+                    case 'done':
+                        statusText = 'انجام شده';
+                        break;
+                    case 'blocked':
+                        statusText = 'مسدود شده';
+                        break;
+                }
+
+                row.innerHTML = `
+                    <td class="px-6 py-4 whitespace-nowrap">
+                        <div class="text-sm font-medium text-gray-900">${task.title_fa}</div>
+                    </td>
+                    <td class="px-6 py-4 whitespace-nowrap">
+                        <div class="text-sm text-gray-500">${task.assignee_fa}</div>
+                    </td>
+                    <td class="px-6 py-4 whitespace-nowrap">
+                        <div class="text-sm text-gray-500">
+                            ${toPersianDigits(toJalali(task.start.split('T')[0]))} تا ${toPersianDigits(toJalali(task.end.split('T')[0]))}
+                        </div>
+                    </td>
+                    <td class="px-6 py-4 whitespace-nowrap">
+                        <span class="px-2 inline-flex text-xs leading-5 font-semibold rounded-full status-${task.status}">
+                            ${statusText}
+                        </span>
+                    </td>
+                    <td class="px-6 py-4 whitespace-nowrap">
+                        <div class="flex items-center">
+                            <div class="w-full bg-gray-200 rounded-full h-2.5">
+                                <div class="progress-bar h-2.5 rounded-full" 
+                                     style="--progress-width: ${task.progress}%; background-color: ${getProgressColor(task.progress)}"></div>
+                            </div>
+                            <span class="text-sm text-gray-500 mr-2">${toPersianDigits(task.progress)}%</span>
+                        </div>
+                    </td>
+                    <td class="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
+                        <button class="text-blue-600 hover:text-blue-900 mr-3">ویرایش</button>
+                        <button class="text-red-600 hover:text-red-900">حذف</button>
+                    </td>
+                `;
+
+                taskList.appendChild(row);
+            }
+        }
+
+        // Update pagination info
+        function updatePagination() {
+            // Calculate total pages based on filteredTasks
+            totalPages = Math.ceil(filteredTasks.length / itemsPerPage) || 1;
+            // Calculate start and end item numbers (1-based)
+            const startIndex = filteredTasks.length === 0 ? 0 : (currentPage - 1) * itemsPerPage + 1;
+            const endIndex = Math.min(currentPage * itemsPerPage, filteredTasks.length);
+
+            startItem.textContent = toPersianDigits(startIndex);
+            endItem.textContent = toPersianDigits(endIndex);
+            totalItems.textContent = toPersianDigits(filteredTasks.length);
+
+            prevPage.disabled = currentPage === 1;
+            nextPage.disabled = currentPage >= totalPages;
+        }
+
+        // Convert a Jalali date string (e.g. "1403/05/16") to a comparable number
+        function jalaliToNumber(jDateStr) {
+            if (!jDateStr) return null;
+            const parts = jDateStr.split('/').map(part => parseInt(part, 10));
+            if (parts.length !== 3 || parts.some(isNaN)) return null;
+            return parts[0] * 10000 + parts[1] * 100 + parts[2];
+        }
+
+        // Apply filters and sorting on the global task list
+        function applyFiltersAndSort() {
+            const statusFilter = document.getElementById('statusFilter')?.value || '';
+            const startFilterStr = document.getElementById('startDateFilter')?.value || '';
+            const endFilterStr = document.getElementById('endDateFilter')?.value || '';
+            const startFilterNum = startFilterStr ? jalaliToNumber(startFilterStr) : null;
+            const endFilterNum = endFilterStr ? jalaliToNumber(endFilterStr) : null;
+            // Filter tasks based on status and date range
+            filteredTasks = tasks.filter(task => {
+                // Status filter
+                if (statusFilter && task.status !== statusFilter) return false;
+                // Date filters: convert task dates to jalali then to numeric for comparison
+                if (startFilterNum !== null) {
+                    const jalStart = toJalali(task.start.split('T')[0]);
+                    if (jalaliToNumber(jalStart) < startFilterNum) return false;
+                }
+                if (endFilterNum !== null) {
+                    const jalEnd = toJalali(task.end.split('T')[0]);
+                    if (jalaliToNumber(jalEnd) > endFilterNum) return false;
+                }
+                return true;
+            });
+            // Sorting
+            const sortFieldEl = document.getElementById('sortField');
+            const sortOrderEl = document.getElementById('sortOrder');
+            const field = sortFieldEl ? sortFieldEl.value : 'start';
+            const order = sortOrderEl ? sortOrderEl.value : 'asc';
+            filteredTasks.sort((a, b) => {
+                let valA, valB;
+                switch (field) {
+                    case 'start':
+                        valA = new Date(a.start);
+                        valB = new Date(b.start);
+                        break;
+                    case 'end':
+                        valA = new Date(a.end);
+                        valB = new Date(b.end);
+                        break;
+                    case 'progress':
+                        valA = a.progress;
+                        valB = b.progress;
+                        break;
+                    case 'title':
+                        valA = a.title_fa || '';
+                        valB = b.title_fa || '';
+                        break;
+                    default:
+                        valA = 0;
+                        valB = 0;
+                }
+                // Handle string comparison for titles
+                if (field === 'title') {
+                    const comparison = valA.localeCompare(valB, 'fa');
+                    return order === 'asc' ? comparison : -comparison;
+                }
+                // Numeric/date comparison
+                if (valA < valB) return order === 'asc' ? -1 : 1;
+                if (valA > valB) return order === 'asc' ? 1 : -1;
+                return 0;
+            });
+            // Reset to first page after filtering/sorting
+            currentPage = 1;
+            renderTasks();
+            updatePagination();
+        }
+
+        // Get progress bar color based on percentage
+        function getProgressColor(progress) {
+            if (progress === 100) return '#10b981';
+            if (progress >= 70) return '#3b82f6';
+            if (progress >= 30) return '#f59e0b';
+            return '#ef4444';
+        }
+    </script>
+</body>
+
+</html>
